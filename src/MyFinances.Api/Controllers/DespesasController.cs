@@ -22,13 +22,34 @@ public class DespesasController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<DespesaDto>>> GetDespesas()
+    public async Task<ActionResult<IEnumerable<DespesaDto>>> GetDespesas(
+        [FromQuery] int? cicloId,
+        [FromQuery] int? usuarioId,
+        [FromQuery] int? categoriaId)
     {
-        var despesas = await _context.Despesas
+        IQueryable<Despesa> query = _context.Despesas
             .Include(d => d.Usuario)
             .Include(d => d.Categoria)
             .Include(d => d.Rateios)
-                .ThenInclude(r => r.Usuario)
+                .ThenInclude(r => r.Usuario);
+
+        if (cicloId.HasValue)
+        {
+            query = query.Where(d => d.CicloId == cicloId.Value);
+        }
+
+        if (usuarioId.HasValue)
+        {
+            // Filter despesas where the user paid OR is responsible for a split/rateio
+            query = query.Where(d => d.UsuarioId == usuarioId.Value || d.Rateios.Any(r => r.UsuarioId == usuarioId.Value));
+        }
+
+        if (categoriaId.HasValue)
+        {
+            query = query.Where(d => d.CategoriaId == categoriaId.Value);
+        }
+
+        var despesas = await query
             .OrderByDescending(d => d.Data)
             .ToListAsync();
 
@@ -57,23 +78,37 @@ public class DespesasController : ControllerBase
             return BadRequest("O valor da despesa deve ser maior que zero.");
         }
 
-        // 2. Create the Despesa
+        // 2. Fetch active cycle for the payer's nucleo
+        var activeCiclo = await _context.Ciclos
+            .FirstOrDefaultAsync(c => c.NucleoId == payer.NucleoId && c.Ativo);
+
+        if (activeCiclo == null)
+        {
+            return BadRequest("Não há nenhum ciclo de gastos ativo para o núcleo deste usuário. Abra um ciclo de gastos primeiro.");
+        }
+
+        // 3. Create the Despesa
         var despesa = new Despesa
         {
             Descricao = request.Descricao,
             Valor = request.Valor,
             Data = request.Data.ToUniversalTime(),
             UsuarioId = request.UsuarioId,
-            CategoriaId = request.CategoriaId
+            CategoriaId = request.CategoriaId,
+            CicloId = activeCiclo.Id
         };
 
-        // 3. Calculate and populate DespesasRateio
+        // 4. Calculate and populate DespesasRateio
         var rateios = new List<DespesaRateio>();
 
         switch (category.TipoDivisao.ToUpper())
         {
             case "PROPORCIONAL":
-                var allUsers = await _context.Usuarios.ToListAsync();
+                // Get all users belonging to the SAME nucleo as the payer
+                var allUsers = await _context.Usuarios
+                    .Where(u => u.NucleoId == payer.NucleoId)
+                    .ToListAsync();
+                    
                 var userIncomes = allUsers.Select(u => (u.Id, u.Renda)).ToList();
                 var proportionalSplits = DistributeProportionally(request.Valor, userIncomes);
                 foreach (var split in proportionalSplits)
@@ -102,7 +137,7 @@ public class DespesasController : ControllerBase
                 }
 
                 var sumSplits = request.Rateios.Sum(r => r.Valor);
-                if (Math.Abs(sumSplits - request.Valor) > 0.01m)
+                if (Math.Abs(sumSplits - request.Valor) > 0.02m)
                 {
                     return BadRequest($"A soma dos rateios ({sumSplits}) deve ser exatamente igual ao valor total da despesa ({request.Valor}).");
                 }
@@ -166,14 +201,15 @@ public class DespesasController : ControllerBase
             d.Descricao,
             d.Valor,
             d.Data,
-            new UsuarioDto(d.Usuario!.Id, d.Usuario.Nome, d.Usuario.Renda),
+            new UsuarioDto(d.Usuario!.Id, d.Usuario.Nome, d.Usuario.Renda, d.Usuario.NucleoId),
             new CategoriaDto(d.Categoria!.Id, d.Categoria.Nome, d.Categoria.TipoDivisao),
             d.Rateios.Select(r => new DespesaRateioDto(
                 r.Id,
                 r.UsuarioId,
                 r.Usuario!.Nome,
                 r.Valor
-            )).ToList()
+            )).ToList(),
+            d.CicloId
         );
     }
 

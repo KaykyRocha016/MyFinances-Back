@@ -13,18 +13,49 @@ public class AppDbContext : DbContext
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<Despesa> Despesas => Set<Despesa>();
     public DbSet<DespesaRateio> DespesasRateio => Set<DespesaRateio>();
+    public DbSet<Nucleo> Nucleos => Set<Nucleo>();
+    public DbSet<Ciclo> Ciclos => Set<Ciclo>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         // Map to lowercase snake_case tables and columns
+        modelBuilder.Entity<Nucleo>(entity =>
+        {
+            entity.ToTable("nucleos");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Ciclo>(entity =>
+        {
+            entity.ToTable("ciclos");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
+            entity.Property(e => e.DataInicio).HasColumnName("data_inicio");
+            entity.Property(e => e.DataFim).HasColumnName("data_fim");
+            entity.Property(e => e.Ativo).HasColumnName("ativo");
+            entity.Property(e => e.NucleoId).HasColumnName("nucleo_id");
+
+            entity.HasOne(c => c.Nucleo)
+                .WithMany()
+                .HasForeignKey(c => c.NucleoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Usuario>(entity =>
         {
             entity.ToTable("usuarios");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
             entity.Property(e => e.Renda).HasColumnName("renda").HasPrecision(18, 2);
+            entity.Property(e => e.NucleoId).HasColumnName("nucleo_id");
+
+            entity.HasOne(u => u.Nucleo)
+                .WithMany()
+                .HasForeignKey(u => u.NucleoId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Categoria>(entity =>
@@ -44,6 +75,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Data).HasColumnName("data");
             entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
             entity.Property(e => e.CategoriaId).HasColumnName("categoria_id");
+            entity.Property(e => e.CicloId).HasColumnName("ciclo_id");
 
             entity.HasOne(d => d.Usuario)
                 .WithMany()
@@ -53,6 +85,11 @@ public class AppDbContext : DbContext
             entity.HasOne(d => d.Categoria)
                 .WithMany()
                 .HasForeignKey(d => d.CategoriaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Ciclo)
+                .WithMany()
+                .HasForeignKey(d => d.CicloId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

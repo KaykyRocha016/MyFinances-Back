@@ -16,5 +16,8 @@ public class Despesa
     public int CategoriaId { get; set; }
     public Categoria? Categoria { get; set; }
 
+    public int CicloId { get; set; }
+    public Ciclo? Ciclo { get; set; }
+
     public ICollection<DespesaRateio> Rateios { get; set; } = new List<DespesaRateio>();
 }

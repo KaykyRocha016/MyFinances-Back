@@ -21,28 +21,41 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UsuarioDto>>> GetUsuarios()
+    public async Task<ActionResult<IEnumerable<UsuarioDto>>> GetUsuarios([FromQuery] int? nucleoId)
     {
-        var users = await _context.Usuarios
-            .Select(u => new UsuarioDto(u.Id, u.Nome, u.Renda))
+        IQueryable<Usuario> query = _context.Usuarios;
+        if (nucleoId.HasValue)
+        {
+            query = query.Where(u => u.NucleoId == nucleoId.Value);
+        }
+
+        var users = await query
+            .Select(u => new UsuarioDto(u.Id, u.Nome, u.Renda, u.NucleoId))
             .ToListAsync();
 
         return Ok(users);
     }
 
     [HttpPost]
-    public async Task<ActionResult<UsuarioDto>> CreateUsuario(UsuarioDto request)
+    public async Task<ActionResult<UsuarioDto>> CreateUsuario(CreateUsuarioRequest request)
     {
+        var nucleoExists = await _context.Nucleos.AnyAsync(n => n.Id == request.NucleoId);
+        if (!nucleoExists)
+        {
+            return BadRequest("Núcleo de destino não encontrado.");
+        }
+
         var user = new Usuario
         {
             Nome = request.Nome,
-            Renda = request.Renda
+            Renda = request.Renda,
+            NucleoId = request.NucleoId
         };
 
         _context.Usuarios.Add(user);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetUsuarios), new UsuarioDto(user.Id, user.Nome, user.Renda));
+        return CreatedAtAction(nameof(GetUsuarios), new { nucleoId = user.NucleoId }, new UsuarioDto(user.Id, user.Nome, user.Renda, user.NucleoId));
     }
 
     [HttpPut("{id}")]
@@ -54,8 +67,15 @@ public class UsuariosController : ControllerBase
             return NotFound();
         }
 
+        var nucleoExists = await _context.Nucleos.AnyAsync(n => n.Id == request.NucleoId);
+        if (!nucleoExists)
+        {
+            return BadRequest("Núcleo de destino não encontrado.");
+        }
+
         user.Nome = request.Nome;
         user.Renda = request.Renda;
+        user.NucleoId = request.NucleoId;
 
         await _context.SaveChangesAsync();
 

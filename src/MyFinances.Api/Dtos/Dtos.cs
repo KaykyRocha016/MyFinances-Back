@@ -24,7 +24,8 @@ public record DespesaDto(
     DateTime Data,
     UsuarioDto Payer,
     CategoriaDto Categoria,
-    List<DespesaRateioDto> Rateios
+    List<DespesaRateioDto> Rateios,
+    int CicloId
 );
 
 public record DespesaRateioDto(
@@ -37,7 +38,14 @@ public record DespesaRateioDto(
 public record UsuarioDto(
     int Id,
     string Nome,
-    decimal Renda
+    decimal Renda,
+    int NucleoId
+);
+
+public record CreateUsuarioRequest(
+    string Nome,
+    decimal Renda,
+    int NucleoId
 );
 
 public record CategoriaDto(
@@ -58,4 +66,29 @@ public record UserBalanceDto(
     decimal TotalPago,
     decimal TotalResponsabilidade,
     decimal SaldoLiquido
+);
+
+public record CreateNucleoRequest(
+    string Nome
+);
+
+public record NucleoDto(
+    int Id,
+    string Nome
+);
+
+public record CreateCicloRequest(
+    string Nome,
+    DateTime DataInicio,
+    DateTime DataFim,
+    int NucleoId
+);
+
+public record CicloDto(
+    int Id,
+    string Nome,
+    DateTime DataInicio,
+    DateTime DataFim,
+    bool Ativo,
+    int NucleoId
 );

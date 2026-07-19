@@ -54,6 +54,11 @@ public record CategoriaDto(
     string TipoDivisao
 );
 
+public record CreateCategoriaRequest(
+    string Nome,
+    string TipoDivisao
+);
+
 public record DashboardDto(
     decimal TotalGeral,
     List<UserBalanceDto> Balances,

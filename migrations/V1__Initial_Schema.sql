@@ -27,10 +27,6 @@ CREATE TABLE despesas_rateio (
 );
 
 -- Seed data to make testing easier
-INSERT INTO usuarios (nome, renda) VALUES 
-('Kayky', 3500.00),
-('Parceiro', 2500.00);
-
 INSERT INTO categorias (nome, tipo_divisao) VALUES
 ('Contas Fixas', 'PROPORCIONAL'),
 ('Mercado e Compras para Casa', 'PROPORCIONAL'),

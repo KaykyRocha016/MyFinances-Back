@@ -46,6 +46,53 @@ public class NucleosController : ControllerBase
         _context.Nucleos.Add(nucleo);
         await _context.SaveChangesAsync();
 
+        // Automatically create a default active cycle for the new Nucleo
+        var defaultCycle = new Ciclo
+        {
+            Nome = "Ciclo Inicial",
+            DataInicio = System.DateTime.UtcNow,
+            DataFim = System.DateTime.UtcNow.AddYears(1),
+            Ativo = true,
+            NucleoId = nucleo.Id
+        };
+        _context.Ciclos.Add(defaultCycle);
+        await _context.SaveChangesAsync();
+
         return CreatedAtAction(nameof(GetNucleos), new { id = nucleo.Id }, new NucleoDto(nucleo.Id, nucleo.Nome));
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateNucleo(int id, CreateNucleoRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Nome))
+        {
+            return BadRequest("O nome do núcleo é obrigatório.");
+        }
+
+        var nucleo = await _context.Nucleos.FindAsync(id);
+        if (nucleo == null)
+        {
+            return NotFound();
+        }
+
+        nucleo.Nome = request.Nome;
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteNucleo(int id)
+    {
+        var nucleo = await _context.Nucleos.FindAsync(id);
+        if (nucleo == null)
+        {
+            return NotFound();
+        }
+
+        _context.Nucleos.Remove(nucleo);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
 }

@@ -104,20 +104,47 @@ public class DespesasController : ControllerBase
         switch (category.TipoDivisao.ToUpper())
         {
             case "PROPORCIONAL":
-                // Get all users belonging to the SAME nucleo as the payer
-                var allUsers = await _context.Usuarios
-                    .Where(u => u.NucleoId == payer.NucleoId)
-                    .ToListAsync();
-                    
-                var userIncomes = allUsers.Select(u => (u.Id, u.Renda)).ToList();
-                var proportionalSplits = DistributeProportionally(request.Valor, userIncomes);
-                foreach (var split in proportionalSplits)
+                if (request.Rateios != null && request.Rateios.Any())
                 {
-                    rateios.Add(new DespesaRateio
+                    var sumSplitsProp = request.Rateios.Sum(r => r.Valor);
+                    if (Math.Abs(sumSplitsProp - request.Valor) > 0.02m)
                     {
-                        UsuarioId = split.UserId,
-                        Valor = split.Value
-                    });
+                        return BadRequest($"A soma dos rateios personalizados ({sumSplitsProp}) deve ser exatamente igual ao valor total da despesa ({request.Valor}).");
+                    }
+
+                    var rateioUserIdsProp = request.Rateios.Select(r => r.UsuarioId).Distinct().ToList();
+                    var existingUsersCountProp = await _context.Usuarios.CountAsync(u => rateioUserIdsProp.Contains(u.Id));
+                    if (existingUsersCountProp != rateioUserIdsProp.Count)
+                    {
+                        return BadRequest("Um ou mais usuários informados no rateio não foram encontrados.");
+                    }
+
+                    foreach (var splitDto in request.Rateios)
+                    {
+                        rateios.Add(new DespesaRateio
+                        {
+                            UsuarioId = splitDto.UsuarioId,
+                            Valor = splitDto.Valor
+                        });
+                    }
+                }
+                else
+                {
+                    // Get all users belonging to the SAME nucleo as the payer
+                    var allUsers = await _context.Usuarios
+                        .Where(u => u.NucleoId == payer.NucleoId)
+                        .ToListAsync();
+                        
+                    var userIncomes = allUsers.Select(u => (u.Id, u.Renda)).ToList();
+                    var proportionalSplits = DistributeProportionally(request.Valor, userIncomes);
+                    foreach (var split in proportionalSplits)
+                    {
+                        rateios.Add(new DespesaRateio
+                        {
+                            UsuarioId = split.UserId,
+                            Valor = split.Value
+                        });
+                    }
                 }
                 break;
 

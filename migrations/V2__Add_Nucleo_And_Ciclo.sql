@@ -5,7 +5,7 @@ CREATE TABLE nucleos (
 );
 
 -- Insert default nucleo for existing data
-INSERT INTO nucleos (nome) VALUES ('Casal Principal');
+INSERT INTO nucleos (nome) VALUES ('Nucleo Principal');
 
 -- Update usuarios table to add nucleo_id
 ALTER TABLE usuarios ADD COLUMN nucleo_id INT;

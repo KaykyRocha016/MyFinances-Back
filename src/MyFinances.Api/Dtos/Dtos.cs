@@ -89,6 +89,13 @@ public record CreateCicloRequest(
     int NucleoId
 );
 
+public record UpdateCicloRequest(
+    string Nome,
+    DateTime DataInicio,
+    DateTime DataFim,
+    bool Ativo
+);
+
 public record CicloDto(
     int Id,
     string Nome,

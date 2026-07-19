@@ -100,4 +100,46 @@ public class CiclosController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateCiclo(int id, UpdateCicloRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Nome))
+        {
+            return BadRequest("O nome do ciclo é obrigatório.");
+        }
+
+        if (request.DataInicio >= request.DataFim)
+        {
+            return BadRequest("A data de início deve ser anterior à data de fim.");
+        }
+
+        var ciclo = await _context.Ciclos.FindAsync(id);
+        if (ciclo == null)
+        {
+            return NotFound("Ciclo não encontrado.");
+        }
+
+        // If we are setting this cycle to active, deactivate all other cycles in this nucleo
+        if (request.Ativo && !ciclo.Ativo)
+        {
+            var activeCycles = await _context.Ciclos
+                .Where(c => c.NucleoId == ciclo.NucleoId && c.Ativo && c.Id != id)
+                .ToListAsync();
+
+            foreach (var activeCycle in activeCycles)
+            {
+                activeCycle.Ativo = false;
+            }
+        }
+
+        ciclo.Nome = request.Nome;
+        ciclo.DataInicio = request.DataInicio.ToUniversalTime();
+        ciclo.DataFim = request.DataFim.ToUniversalTime();
+        ciclo.Ativo = request.Ativo;
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }

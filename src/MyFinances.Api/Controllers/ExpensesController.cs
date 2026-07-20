@@ -76,6 +76,8 @@ public class ExpensesController : ControllerBase
             return BadRequest("O valor da despesa deve ser maior que zero.");
         }
 
+        int totalInstallments = request.TotalInstallments > 0 ? request.TotalInstallments : 1;
+
         var activeCycle = await _context.Cycles
             .FirstOrDefaultAsync(c => c.HouseholdId == payer.HouseholdId && c.IsActive);
 
@@ -84,121 +86,184 @@ public class ExpensesController : ControllerBase
             return BadRequest("Não há nenhum ciclo de gastos ativo para o núcleo deste usuário. Abra um ciclo de gastos primeiro.");
         }
 
-        var expense = new Expense
-        {
-            Description = request.Description,
-            Amount = request.Amount,
-            Date = request.Date.ToUniversalTime(),
-            UserId = request.UserId,
-            CategoryId = request.CategoryId,
-            CycleId = activeCycle.Id
-        };
+        Guid? installmentGroupId = totalInstallments > 1 ? Guid.NewGuid() : null;
+        decimal baseInstallmentAmount = Math.Round(request.Amount / totalInstallments, 2);
 
-        var splits = new List<ExpenseSplit>();
+        var createdExpenses = new List<Expense>();
+        Cycle currentCycle = activeCycle;
 
-        switch (category.DivisionType.ToUpper())
+        var allUsers = await _context.Users
+            .Where(u => u.HouseholdId == payer.HouseholdId)
+            .ToListAsync();
+
+        for (int i = 1; i <= totalInstallments; i++)
         {
-            case "PROPORCIONAL":
-                if (request.Splits != null && request.Splits.Any())
-                {
-                    var sumSplitsProp = request.Splits.Sum(r => r.Amount);
-                    if (Math.Abs(sumSplitsProp - request.Amount) > 0.02m)
+            // The last installment gets the remainder to avoid rounding differences
+            decimal installmentAmount = (i == totalInstallments)
+                ? request.Amount - (baseInstallmentAmount * (totalInstallments - 1))
+                : baseInstallmentAmount;
+
+            var targetDate = request.Date.AddMonths(i - 1).ToUniversalTime();
+
+            Cycle cycleForInstallment;
+            if (i == 1)
+            {
+                cycleForInstallment = activeCycle;
+            }
+            else
+            {
+                cycleForInstallment = await GetOrCreateCycleForInstallment(payer.HouseholdId, currentCycle, targetDate);
+                currentCycle = cycleForInstallment;
+            }
+
+            var expense = new Expense
+            {
+                Description = totalInstallments > 1 ? $"{request.Description} ({i}/{totalInstallments})" : request.Description,
+                Amount = installmentAmount,
+                Date = targetDate,
+                UserId = request.UserId,
+                CategoryId = request.CategoryId,
+                CycleId = cycleForInstallment.Id,
+                InstallmentNumber = i,
+                TotalInstallments = totalInstallments,
+                InstallmentGroupId = installmentGroupId
+            };
+
+            var splits = new List<ExpenseSplit>();
+
+            switch (category.DivisionType.ToUpper())
+            {
+                case "PROPORCIONAL":
+                    if (request.Splits != null && request.Splits.Any())
                     {
-                        return BadRequest($"A soma dos rateios personalizados ({sumSplitsProp}) deve ser exatamente igual ao valor total da despesa ({request.Amount}).");
+                        // Calculate proportional split per user for this installment amount
+                        foreach (var splitDto in request.Splits)
+                        {
+                            decimal userPortion = request.Amount > 0 
+                                ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
+                                : 0m;
+
+                            splits.Add(new ExpenseSplit
+                            {
+                                UserId = splitDto.UserId,
+                                Amount = userPortion
+                            });
+                        }
                     }
-
-                    var splitUserIdsProp = request.Splits.Select(r => r.UserId).Distinct().ToList();
-                    var existingUsersCountProp = await _context.Users.CountAsync(u => splitUserIdsProp.Contains(u.Id));
-                    if (existingUsersCountProp != splitUserIdsProp.Count)
+                    else
                     {
-                        return BadRequest("Um ou mais usuários informados no rateio não foram encontrados.");
+                        var userIncomes = allUsers.Select(u => (u.Id, u.Income)).ToList();
+                        var proportionalSplits = DistributeProportionally(installmentAmount, userIncomes);
+                        foreach (var split in proportionalSplits)
+                        {
+                            splits.Add(new ExpenseSplit
+                            {
+                                UserId = split.UserId,
+                                Amount = split.Value
+                            });
+                        }
+                    }
+                    break;
+
+                case "INDIVIDUAL":
+                    splits.Add(new ExpenseSplit
+                    {
+                        UserId = request.UserId,
+                        Amount = installmentAmount
+                    });
+                    break;
+
+                case "CUSTOMIZADO":
+                    if (request.Splits == null || !request.Splits.Any())
+                    {
+                        return BadRequest("Para despesas com divisão exata/customizada, você deve informar o rateio na requisição.");
                     }
 
                     foreach (var splitDto in request.Splits)
                     {
+                        decimal userPortion = request.Amount > 0 
+                            ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
+                            : 0m;
+
                         splits.Add(new ExpenseSplit
                         {
                             UserId = splitDto.UserId,
-                            Amount = splitDto.Amount
+                            Amount = userPortion
                         });
                     }
-                }
-                else
-                {
-                    var allUsers = await _context.Users
-                        .Where(u => u.HouseholdId == payer.HouseholdId)
-                        .ToListAsync();
-                        
-                    var userIncomes = allUsers.Select(u => (u.Id, u.Income)).ToList();
-                    var proportionalSplits = DistributeProportionally(request.Amount, userIncomes);
-                    foreach (var split in proportionalSplits)
-                    {
-                        splits.Add(new ExpenseSplit
-                        {
-                            UserId = split.UserId,
-                            Amount = split.Value
-                        });
-                    }
-                }
-                break;
+                    break;
 
-            case "INDIVIDUAL":
-                splits.Add(new ExpenseSplit
-                {
-                    UserId = request.UserId,
-                    Amount = request.Amount
-                });
-                break;
+                default:
+                    return BadRequest($"Tipo de divisão desconhecido: {category.DivisionType}");
+            }
 
-            case "CUSTOMIZADO":
-                if (request.Splits == null || !request.Splits.Any())
-                {
-                    return BadRequest("Para despesas com divisão exata/customizada, você deve informar o rateio na requisição.");
-                }
-
-                var sumSplits = request.Splits.Sum(r => r.Amount);
-                if (Math.Abs(sumSplits - request.Amount) > 0.02m)
-                {
-                    return BadRequest($"A soma dos rateios ({sumSplits}) deve ser exatamente igual ao valor total da despesa ({request.Amount}).");
-                }
-
-                var splitUserIds = request.Splits.Select(r => r.UserId).Distinct().ToList();
-                var existingUsersCount = await _context.Users.CountAsync(u => splitUserIds.Contains(u.Id));
-                if (existingUsersCount != splitUserIds.Count)
-                {
-                    return BadRequest("Um ou mais usuários informados no rateio não foram encontrados.");
-                }
-
-                foreach (var splitDto in request.Splits)
-                {
-                    splits.Add(new ExpenseSplit
-                    {
-                        UserId = splitDto.UserId,
-                        Amount = splitDto.Amount
-                    });
-                }
-                break;
-
-            default:
-                return BadRequest($"Tipo de divisão desconhecido: {category.DivisionType}");
+            expense.Splits = splits;
+            _context.Expenses.Add(expense);
+            createdExpenses.Add(expense);
         }
 
-        expense.Splits = splits;
-        _context.Expenses.Add(expense);
         await _context.SaveChangesAsync();
 
+        var firstCreatedId = createdExpenses[0].Id;
         var createdExpense = await _context.Expenses
             .Include(d => d.User)
             .Include(d => d.Category)
             .Include(d => d.Splits)
                 .ThenInclude(r => r.User)
-            .FirstAsync(d => d.Id == expense.Id);
+            .FirstAsync(d => d.Id == firstCreatedId);
 
         return CreatedAtAction(nameof(GetExpenses), MapToDto(createdExpense));
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateExpense(int id, UpdateExpenseRequest request)
+    {
+        var expense = await _context.Expenses.FindAsync(id);
+        if (expense == null)
+        {
+            return NotFound("Despesa não encontrada.");
+        }
+
+        var category = await _context.Categories.FindAsync(request.CategoryId);
+        if (category == null)
+        {
+            return BadRequest("Categoria não encontrada.");
+        }
+
+        if (request.UpdateAllInstallments && expense.InstallmentGroupId.HasValue)
+        {
+            var allInstallments = await _context.Expenses
+                .Where(e => e.InstallmentGroupId == expense.InstallmentGroupId.Value)
+                .ToListAsync();
+
+            foreach (var inst in allInstallments)
+            {
+                // Preserve (i/N) suffix if present
+                if (inst.TotalInstallments > 1)
+                {
+                    inst.Description = $"{request.Description} ({inst.InstallmentNumber}/{inst.TotalInstallments})";
+                }
+                else
+                {
+                    inst.Description = request.Description;
+                }
+                inst.CategoryId = request.CategoryId;
+            }
+        }
+        else
+        {
+            expense.Description = request.Description;
+            expense.Amount = request.Amount;
+            expense.CategoryId = request.CategoryId;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteExpense(int id)
+    public async Task<IActionResult> DeleteExpense(int id, [FromQuery] bool deleteAllInstallments = false)
     {
         var expense = await _context.Expenses.FindAsync(id);
         if (expense == null)
@@ -206,10 +271,55 @@ public class ExpensesController : ControllerBase
             return NotFound();
         }
 
-        _context.Expenses.Remove(expense);
+        if (deleteAllInstallments && expense.InstallmentGroupId.HasValue)
+        {
+            var allInstallments = await _context.Expenses
+                .Where(e => e.InstallmentGroupId == expense.InstallmentGroupId.Value)
+                .ToListAsync();
+
+            _context.Expenses.RemoveRange(allInstallments);
+        }
+        else
+        {
+            _context.Expenses.Remove(expense);
+        }
+
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private async Task<Cycle> GetOrCreateCycleForInstallment(int householdId, Cycle previousCycle, DateTime targetDate)
+    {
+        // 1. Check if there is an existing cycle after previousCycle
+        var nextCycle = await _context.Cycles
+            .Where(c => c.HouseholdId == householdId && c.StartDate > previousCycle.StartDate)
+            .OrderBy(c => c.StartDate)
+            .FirstOrDefaultAsync();
+
+        if (nextCycle != null)
+        {
+            return nextCycle;
+        }
+
+        // 2. If no next cycle exists, automatically create a new cycle
+        var newStart = previousCycle.EndDate > targetDate ? previousCycle.EndDate : targetDate;
+        var newEnd = newStart.AddMonths(1);
+        string monthLabel = targetDate.ToString("MMM yyyy");
+
+        var createdCycle = new Cycle
+        {
+            Name = $"Ciclo {monthLabel}",
+            StartDate = newStart,
+            EndDate = newEnd,
+            IsActive = false,
+            HouseholdId = householdId
+        };
+
+        _context.Cycles.Add(createdCycle);
+        await _context.SaveChangesAsync();
+
+        return createdCycle;
     }
 
     private static ExpenseDto MapToDto(Expense d)
@@ -227,7 +337,10 @@ public class ExpensesController : ControllerBase
                 r.User!.Name,
                 r.Amount
             )).ToList(),
-            d.CycleId
+            d.CycleId,
+            d.InstallmentNumber,
+            d.TotalInstallments,
+            d.InstallmentGroupId
         );
     }
 

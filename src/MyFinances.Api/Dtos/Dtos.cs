@@ -9,7 +9,15 @@ public record CreateExpenseRequest(
     DateTime Date,
     int UserId,
     int CategoryId,
-    List<CreateExpenseSplitRequest>? Splits
+    List<CreateExpenseSplitRequest>? Splits,
+    int TotalInstallments = 1
+);
+
+public record UpdateExpenseRequest(
+    string Description,
+    decimal Amount,
+    int CategoryId,
+    bool UpdateAllInstallments = false
 );
 
 public record CreateExpenseSplitRequest(
@@ -25,7 +33,10 @@ public record ExpenseDto(
     UserDto Payer,
     CategoryDto Category,
     List<ExpenseSplitDto> Splits,
-    int CycleId
+    int CycleId,
+    int InstallmentNumber = 1,
+    int TotalInstallments = 1,
+    Guid? InstallmentGroupId = null
 );
 
 public record ExpenseSplitDto(

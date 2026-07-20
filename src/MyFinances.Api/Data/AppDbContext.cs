@@ -76,6 +76,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CycleId).HasColumnName("cycle_id");
+            entity.Property(e => e.InstallmentNumber).HasColumnName("installment_number");
+            entity.Property(e => e.TotalInstallments).HasColumnName("total_installments");
+            entity.Property(e => e.InstallmentGroupId).HasColumnName("installment_group_id");
 
             entity.HasOne(d => d.User)
                 .WithMany()

@@ -19,5 +19,9 @@ public class Expense
     public int CycleId { get; set; }
     public Cycle? Cycle { get; set; }
 
+    public int InstallmentNumber { get; set; } = 1;
+    public int TotalInstallments { get; set; } = 1;
+    public Guid? InstallmentGroupId { get; set; }
+
     public ICollection<ExpenseSplit> Splits { get; set; } = new List<ExpenseSplit>();
 }

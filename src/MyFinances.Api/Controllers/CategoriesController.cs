@@ -11,48 +11,48 @@ namespace MyFinances.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CategoriasController : ControllerBase
+public class CategoriesController : ControllerBase
 {
     private readonly AppDbContext _context;
 
-    public CategoriasController(AppDbContext context)
+    public CategoriesController(AppDbContext context)
     {
         _context = context;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CategoriaDto>>> GetCategorias()
+    public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
     {
-        var categories = await _context.Categorias
-            .Select(c => new CategoriaDto(c.Id, c.Nome, c.TipoDivisao))
+        var categories = await _context.Categories
+            .Select(c => new CategoryDto(c.Id, c.Name, c.DivisionType))
             .ToListAsync();
 
         return Ok(categories);
     }
 
     [HttpPost]
-    public async Task<ActionResult<CategoriaDto>> CreateCategoria(CreateCategoriaRequest request)
+    public async Task<ActionResult<CategoryDto>> CreateCategory(CreateCategoryRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Nome))
+        if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest("O nome da categoria é obrigatório.");
         }
 
-        var divisionType = request.TipoDivisao.ToUpper();
+        var divisionType = request.DivisionType.ToUpper();
         if (divisionType != "PROPORCIONAL" && divisionType != "INDIVIDUAL" && divisionType != "CUSTOMIZADO")
         {
             return BadRequest("Tipo de divisão inválido. Use PROPORCIONAL, INDIVIDUAL ou CUSTOMIZADO.");
         }
 
-        var category = new Categoria
+        var category = new Category
         {
-            Nome = request.Nome,
-            TipoDivisao = divisionType
+            Name = request.Name,
+            DivisionType = divisionType
         };
 
-        _context.Categorias.Add(category);
+        _context.Categories.Add(category);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetCategorias), new { id = category.Id }, new CategoriaDto(category.Id, category.Nome, category.TipoDivisao));
+        return CreatedAtAction(nameof(GetCategories), new { id = category.Id }, new CategoryDto(category.Id, category.Name, category.DivisionType));
     }
 }

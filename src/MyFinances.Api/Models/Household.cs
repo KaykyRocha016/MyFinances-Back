@@ -1,7 +1,7 @@
 namespace MyFinances.Api.Models;
 
-public class Nucleo
+public class Household
 {
     public int Id { get; set; }
-    public required string Nome { get; set; }
+    public required string Name { get; set; }
 }

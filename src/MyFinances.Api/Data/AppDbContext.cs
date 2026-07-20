@@ -9,106 +9,106 @@ public class AppDbContext : DbContext
     {
     }
 
-    public DbSet<Usuario> Usuarios => Set<Usuario>();
-    public DbSet<Categoria> Categorias => Set<Categoria>();
-    public DbSet<Despesa> Despesas => Set<Despesa>();
-    public DbSet<DespesaRateio> DespesasRateio => Set<DespesaRateio>();
-    public DbSet<Nucleo> Nucleos => Set<Nucleo>();
-    public DbSet<Ciclo> Ciclos => Set<Ciclo>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<ExpenseSplit> ExpenseSplits => Set<ExpenseSplit>();
+    public DbSet<Household> Households => Set<Household>();
+    public DbSet<Cycle> Cycles => Set<Cycle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         // Map to lowercase snake_case tables and columns
-        modelBuilder.Entity<Nucleo>(entity =>
+        modelBuilder.Entity<Household>(entity =>
         {
-            entity.ToTable("nucleos");
+            entity.ToTable("households");
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
         });
 
-        modelBuilder.Entity<Ciclo>(entity =>
+        modelBuilder.Entity<Cycle>(entity =>
         {
-            entity.ToTable("ciclos");
+            entity.ToTable("cycles");
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
-            entity.Property(e => e.DataInicio).HasColumnName("data_inicio");
-            entity.Property(e => e.DataFim).HasColumnName("data_fim");
-            entity.Property(e => e.Ativo).HasColumnName("ativo");
-            entity.Property(e => e.NucleoId).HasColumnName("nucleo_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
+            entity.Property(e => e.StartDate).HasColumnName("start_date");
+            entity.Property(e => e.EndDate).HasColumnName("end_date");
+            entity.Property(e => e.IsActive).HasColumnName("is_active");
+            entity.Property(e => e.HouseholdId).HasColumnName("household_id");
 
-            entity.HasOne(c => c.Nucleo)
+            entity.HasOne(c => c.Household)
                 .WithMany()
-                .HasForeignKey(c => c.NucleoId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<Usuario>(entity =>
-        {
-            entity.ToTable("usuarios");
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
-            entity.Property(e => e.Renda).HasColumnName("renda").HasPrecision(18, 2);
-            entity.Property(e => e.NucleoId).HasColumnName("nucleo_id");
-
-            entity.HasOne(u => u.Nucleo)
-                .WithMany()
-                .HasForeignKey(u => u.NucleoId)
+                .HasForeignKey(c => c.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<Categoria>(entity =>
+        modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("categorias");
+            entity.ToTable("users");
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Nome).HasColumnName("nome").HasMaxLength(100);
-            entity.Property(e => e.TipoDivisao).HasColumnName("tipo_divisao").HasMaxLength(50);
-        });
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
+            entity.Property(e => e.Income).HasColumnName("income").HasPrecision(18, 2);
+            entity.Property(e => e.HouseholdId).HasColumnName("household_id");
 
-        modelBuilder.Entity<Despesa>(entity =>
-        {
-            entity.ToTable("despesas");
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Descricao).HasColumnName("descricao").HasMaxLength(255);
-            entity.Property(e => e.Valor).HasColumnName("valor").HasPrecision(18, 2);
-            entity.Property(e => e.Data).HasColumnName("data");
-            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
-            entity.Property(e => e.CategoriaId).HasColumnName("categoria_id");
-            entity.Property(e => e.CicloId).HasColumnName("ciclo_id");
-
-            entity.HasOne(d => d.Usuario)
+            entity.HasOne(u => u.Household)
                 .WithMany()
-                .HasForeignKey(d => d.UsuarioId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(d => d.Categoria)
-                .WithMany()
-                .HasForeignKey(d => d.CategoriaId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(d => d.Ciclo)
-                .WithMany()
-                .HasForeignKey(d => d.CicloId)
+                .HasForeignKey(u => u.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<DespesaRateio>(entity =>
+        modelBuilder.Entity<Category>(entity =>
         {
-            entity.ToTable("despesas_rateio");
+            entity.ToTable("categories");
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.DespesaId).HasColumnName("despesa_id");
-            entity.Property(e => e.UsuarioId).HasColumnName("usuario_id");
-            entity.Property(e => e.Valor).HasColumnName("valor").HasPrecision(18, 2);
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
+            entity.Property(e => e.DivisionType).HasColumnName("division_type").HasMaxLength(50);
+        });
 
-            entity.HasOne(d => d.Despesa)
-                .WithMany(p => p.Rateios)
-                .HasForeignKey(d => d.DespesaId)
+        modelBuilder.Entity<Expense>(entity =>
+        {
+            entity.ToTable("expenses");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Description).HasColumnName("description").HasMaxLength(255);
+            entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(18, 2);
+            entity.Property(e => e.Date).HasColumnName("date");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.CycleId).HasColumnName("cycle_id");
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(d => d.Usuario)
+            entity.HasOne(d => d.Category)
                 .WithMany()
-                .HasForeignKey(d => d.UsuarioId)
+                .HasForeignKey(d => d.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Cycle)
+                .WithMany()
+                .HasForeignKey(d => d.CycleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExpenseSplit>(entity =>
+        {
+            entity.ToTable("expense_splits");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ExpenseId).HasColumnName("expense_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(18, 2);
+
+            entity.HasOne(d => d.Expense)
+                .WithMany(p => p.Splits)
+                .HasForeignKey(d => d.ExpenseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

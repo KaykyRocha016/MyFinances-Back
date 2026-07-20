@@ -3,104 +3,104 @@ using System.Collections.Generic;
 
 namespace MyFinances.Api.Dtos;
 
-public record CreateDespesaRequest(
-    string Descricao,
-    decimal Valor,
-    DateTime Data,
-    int UsuarioId,
-    int CategoriaId,
-    List<CreateDespesaRateioRequest>? Rateios
+public record CreateExpenseRequest(
+    string Description,
+    decimal Amount,
+    DateTime Date,
+    int UserId,
+    int CategoryId,
+    List<CreateExpenseSplitRequest>? Splits
 );
 
-public record CreateDespesaRateioRequest(
-    int UsuarioId,
-    decimal Valor
+public record CreateExpenseSplitRequest(
+    int UserId,
+    decimal Amount
 );
 
-public record DespesaDto(
+public record ExpenseDto(
     int Id,
-    string Descricao,
-    decimal Valor,
-    DateTime Data,
-    UsuarioDto Payer,
-    CategoriaDto Categoria,
-    List<DespesaRateioDto> Rateios,
-    int CicloId
+    string Description,
+    decimal Amount,
+    DateTime Date,
+    UserDto Payer,
+    CategoryDto Category,
+    List<ExpenseSplitDto> Splits,
+    int CycleId
 );
 
-public record DespesaRateioDto(
+public record ExpenseSplitDto(
     int Id,
-    int UsuarioId,
-    string UsuarioNome,
-    decimal Valor
+    int UserId,
+    string UserName,
+    decimal Amount
 );
 
-public record UsuarioDto(
+public record UserDto(
     int Id,
-    string Nome,
-    decimal Renda,
-    int NucleoId
+    string Name,
+    decimal Income,
+    int HouseholdId
 );
 
-public record CreateUsuarioRequest(
-    string Nome,
-    decimal Renda,
-    int NucleoId
+public record CreateUserRequest(
+    string Name,
+    decimal Income,
+    int HouseholdId
 );
 
-public record CategoriaDto(
+public record CategoryDto(
     int Id,
-    string Nome,
-    string TipoDivisao
+    string Name,
+    string DivisionType
 );
 
-public record CreateCategoriaRequest(
-    string Nome,
-    string TipoDivisao
+public record CreateCategoryRequest(
+    string Name,
+    string DivisionType
 );
 
 public record DashboardDto(
-    decimal TotalGeral,
+    decimal TotalOverall,
     List<UserBalanceDto> Balances,
     string StatusBalance
 );
 
 public record UserBalanceDto(
-    int UsuarioId,
-    string Nome,
-    decimal TotalPago,
-    decimal TotalResponsabilidade,
-    decimal SaldoLiquido
+    int UserId,
+    string Name,
+    decimal TotalPaid,
+    decimal TotalResponsibility,
+    decimal NetBalance
 );
 
-public record CreateNucleoRequest(
-    string Nome
+public record CreateHouseholdRequest(
+    string Name
 );
 
-public record NucleoDto(
+public record HouseholdDto(
     int Id,
-    string Nome
+    string Name
 );
 
-public record CreateCicloRequest(
-    string Nome,
-    DateTime DataInicio,
-    DateTime DataFim,
-    int NucleoId
+public record CreateCycleRequest(
+    string Name,
+    DateTime StartDate,
+    DateTime EndDate,
+    int HouseholdId
 );
 
-public record UpdateCicloRequest(
-    string Nome,
-    DateTime DataInicio,
-    DateTime DataFim,
-    bool Ativo
+public record UpdateCycleRequest(
+    string Name,
+    DateTime StartDate,
+    DateTime EndDate,
+    bool IsActive
 );
 
-public record CicloDto(
+public record CycleDto(
     int Id,
-    string Nome,
-    DateTime DataInicio,
-    DateTime DataFim,
-    bool Ativo,
-    int NucleoId
+    string Name,
+    DateTime StartDate,
+    DateTime EndDate,
+    bool IsActive,
+    int HouseholdId
 );

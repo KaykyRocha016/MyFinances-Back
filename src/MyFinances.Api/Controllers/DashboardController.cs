@@ -21,78 +21,78 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<DashboardDto>> GetDashboard([FromQuery] int nucleoId, [FromQuery] int? cicloId)
+    public async Task<ActionResult<DashboardDto>> GetDashboard([FromQuery] int householdId, [FromQuery] int? cycleId)
     {
         // 1. Resolve which cycle we are querying
-        int resolvedCicloId = 0;
-        string cycleName = "Ciclo";
+        int resolvedCycleId = 0;
+        string cycleName = "Cycle";
         bool hasActiveCycle = false;
 
-        if (cicloId.HasValue)
+        if (cycleId.HasValue)
         {
-            var ciclo = await _context.Ciclos.FindAsync(cicloId.Value);
-            if (ciclo != null && ciclo.NucleoId == nucleoId)
+            var cycle = await _context.Cycles.FindAsync(cycleId.Value);
+            if (cycle != null && cycle.HouseholdId == householdId)
             {
-                resolvedCicloId = ciclo.Id;
-                cycleName = ciclo.Nome;
-                hasActiveCycle = ciclo.Ativo;
+                resolvedCycleId = cycle.Id;
+                cycleName = cycle.Name;
+                hasActiveCycle = cycle.IsActive;
             }
         }
         else
         {
-            var activeCiclo = await _context.Ciclos
-                .FirstOrDefaultAsync(c => c.NucleoId == nucleoId && c.Ativo);
+            var activeCycle = await _context.Cycles
+                .FirstOrDefaultAsync(c => c.HouseholdId == householdId && c.IsActive);
             
-            if (activeCiclo != null)
+            if (activeCycle != null)
             {
-                resolvedCicloId = activeCiclo.Id;
-                cycleName = activeCiclo.Nome;
+                resolvedCycleId = activeCycle.Id;
+                cycleName = activeCycle.Name;
                 hasActiveCycle = true;
             }
         }
 
-        // 2. Fetch users in this specific nucleo
-        var users = await _context.Usuarios
-            .Where(u => u.NucleoId == nucleoId)
+        // 2. Fetch users in this specific household
+        var users = await _context.Users
+            .Where(u => u.HouseholdId == householdId)
             .ToListAsync();
 
-        if (resolvedCicloId == 0)
+        if (resolvedCycleId == 0)
         {
             // If no cycle found/active, return empty dashboard
             return Ok(new DashboardDto(
                 0m,
-                users.Select(u => new UserBalanceDto(u.Id, u.Nome, 0m, 0m, 0m)).ToList(),
+                users.Select(u => new UserBalanceDto(u.Id, u.Name, 0m, 0m, 0m)).ToList(),
                 "Nenhum ciclo ativo cadastrado. Crie um ciclo para iniciar."
             ));
         }
 
-        // 3. Fetch expenses and rateios belonging to the resolved cycle
-        var despesas = await _context.Despesas
-            .Where(d => d.CicloId == resolvedCicloId)
+        // 3. Fetch expenses and splits belonging to the resolved cycle
+        var expenses = await _context.Expenses
+            .Where(d => d.CycleId == resolvedCycleId)
             .ToListAsync();
 
-        var despesaIds = despesas.Select(d => d.Id).ToList();
+        var expenseIds = expenses.Select(d => d.Id).ToList();
 
-        var rateios = await _context.DespesasRateio
-            .Where(r => despesaIds.Contains(r.DespesaId))
+        var splits = await _context.ExpenseSplits
+            .Where(r => expenseIds.Contains(r.ExpenseId))
             .ToListAsync();
 
-        decimal totalGeral = despesas.Sum(d => d.Valor);
+        decimal totalOverall = expenses.Sum(d => d.Amount);
 
         var balances = new List<UserBalanceDto>();
 
         foreach (var user in users)
         {
-            decimal totalPago = despesas.Where(d => d.UsuarioId == user.Id).Sum(d => d.Valor);
-            decimal totalResponsabilidade = rateios.Where(r => r.UsuarioId == user.Id).Sum(r => r.Valor);
-            decimal saldoLiquido = totalPago - totalResponsabilidade;
+            decimal totalPaid = expenses.Where(d => d.UserId == user.Id).Sum(d => d.Amount);
+            decimal totalResponsibility = splits.Where(r => r.UserId == user.Id).Sum(r => r.Amount);
+            decimal netBalance = totalPaid - totalResponsibility;
 
             balances.Add(new UserBalanceDto(
                 user.Id,
-                user.Nome,
-                totalPago,
-                totalResponsabilidade,
-                saldoLiquido
+                user.Name,
+                totalPaid,
+                totalResponsibility,
+                netBalance
             ));
         }
 
@@ -102,13 +102,13 @@ public class DashboardController : ControllerBase
             var user1 = balances[0];
             var user2 = balances[1];
 
-            if (user1.SaldoLiquido > 0)
+            if (user1.NetBalance > 0)
             {
-                statusBalance = $"{user2.Nome} deve {Math.Abs(user1.SaldoLiquido):C} para {user1.Nome}";
+                statusBalance = $"{user2.Name} deve {Math.Abs(user1.NetBalance):C} para {user1.Name}";
             }
-            else if (user2.SaldoLiquido > 0)
+            else if (user2.NetBalance > 0)
             {
-                statusBalance = $"{user1.Nome} deve {Math.Abs(user2.SaldoLiquido):C} para {user2.Nome}";
+                statusBalance = $"{user1.Name} deve {Math.Abs(user2.NetBalance):C} para {user2.Name}";
             }
             else
             {
@@ -117,15 +117,15 @@ public class DashboardController : ControllerBase
         }
         else if (balances.Count > 2)
         {
-            // Summarize for multi-user nucleos
-            var debtors = balances.Where(b => b.SaldoLiquido < 0).ToList();
-            var creditors = balances.Where(b => b.SaldoLiquido > 0).ToList();
+            // Summarize for multi-user households
+            var debtors = balances.Where(b => b.NetBalance < 0).ToList();
+            var creditors = balances.Where(b => b.NetBalance > 0).ToList();
             
             if (debtors.Any() && creditors.Any())
             {
-                var mainCreditor = creditors.OrderByDescending(c => c.SaldoLiquido).First();
-                var totalOwed = creditors.Sum(c => c.SaldoLiquido);
-                statusBalance = $"{mainCreditor.Nome} e outros têm {totalOwed:C} a receber no total.";
+                var mainCreditor = creditors.OrderByDescending(c => c.NetBalance).First();
+                var totalOwed = creditors.Sum(c => c.NetBalance);
+                statusBalance = $"{mainCreditor.Name} e outros têm {totalOwed:C} a receber no total.";
             }
             else
             {
@@ -143,7 +143,7 @@ public class DashboardController : ControllerBase
         }
 
         var dashboard = new DashboardDto(
-            totalGeral,
+            totalOverall,
             balances,
             statusBalance
         );

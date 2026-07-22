@@ -137,11 +137,22 @@ public class ExpensesController : ControllerBase
                     if (request.Splits != null && request.Splits.Any())
                     {
                         // Calculate proportional split per user for this installment amount
-                        foreach (var splitDto in request.Splits)
+                        decimal accumulatedProp = 0m;
+                        for (int j = 0; j < request.Splits.Count; j++)
                         {
-                            decimal userPortion = request.Amount > 0 
-                                ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
-                                : 0m;
+                            var splitDto = request.Splits[j];
+                            decimal userPortion;
+                            if (j == request.Splits.Count - 1)
+                            {
+                                userPortion = installmentAmount - accumulatedProp;
+                            }
+                            else
+                            {
+                                userPortion = request.Amount > 0 
+                                    ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
+                                    : 0m;
+                                accumulatedProp += userPortion;
+                            }
 
                             splits.Add(new ExpenseSplit
                             {
@@ -179,11 +190,22 @@ public class ExpensesController : ControllerBase
                         return BadRequest("Para despesas com divisão exata/customizada, você deve informar o rateio na requisição.");
                     }
 
-                    foreach (var splitDto in request.Splits)
+                    decimal accumulatedCustom = 0m;
+                    for (int j = 0; j < request.Splits.Count; j++)
                     {
-                        decimal userPortion = request.Amount > 0 
-                            ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
-                            : 0m;
+                        var splitDto = request.Splits[j];
+                        decimal userPortion;
+                        if (j == request.Splits.Count - 1)
+                        {
+                            userPortion = installmentAmount - accumulatedCustom;
+                        }
+                        else
+                        {
+                            userPortion = request.Amount > 0 
+                                ? Math.Round((splitDto.Amount / request.Amount) * installmentAmount, 2)
+                                : 0m;
+                            accumulatedCustom += userPortion;
+                        }
 
                         splits.Add(new ExpenseSplit
                         {

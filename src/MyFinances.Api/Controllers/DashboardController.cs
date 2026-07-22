@@ -102,13 +102,31 @@ public class DashboardController : ControllerBase
             var user1 = balances[0];
             var user2 = balances[1];
 
-            if (user1.NetBalance > 0)
+            if (user1.NetBalance > 0 && user2.NetBalance < 0)
             {
-                statusBalance = $"{user2.Name} deve {Math.Abs(user1.NetBalance):C} para {user1.Name}";
+                statusBalance = $"{user2.Name} deve {Math.Abs(user2.NetBalance):C} para {user1.Name}";
+                decimal thirdPartyOwed = user1.NetBalance + user2.NetBalance;
+                if (Math.Abs(thirdPartyOwed) > 0.02m)
+                {
+                    statusBalance += $" (e {Math.Abs(thirdPartyOwed):C} é devido por terceiros/pessoas de fora)";
+                }
             }
-            else if (user2.NetBalance > 0)
+            else if (user2.NetBalance > 0 && user1.NetBalance < 0)
             {
-                statusBalance = $"{user1.Name} deve {Math.Abs(user2.NetBalance):C} para {user2.Name}";
+                statusBalance = $"{user1.Name} deve {Math.Abs(user1.NetBalance):C} para {user2.Name}";
+                decimal thirdPartyOwed = user1.NetBalance + user2.NetBalance;
+                if (Math.Abs(thirdPartyOwed) > 0.02m)
+                {
+                    statusBalance += $" (e {Math.Abs(thirdPartyOwed):C} é devido por terceiros/pessoas de fora)";
+                }
+            }
+            else if (user1.NetBalance > 0 && user2.NetBalance > 0)
+            {
+                statusBalance = $"Ninguém deve para ninguém no núcleo, mas terceiros devem {user1.NetBalance:C} para {user1.Name} e {user2.NetBalance:C} para {user2.Name}";
+            }
+            else if (user1.NetBalance < 0 || user2.NetBalance < 0)
+            {
+                statusBalance = "Ninguém no núcleo deve para outro membro, mas há pendências com terceiros.";
             }
             else
             {

@@ -10,7 +10,8 @@ public record CreateExpenseRequest(
     int UserId,
     int CategoryId,
     List<CreateExpenseSplitRequest>? Splits,
-    int TotalInstallments = 1
+    int TotalInstallments = 1,
+    int? CycleId = null
 );
 
 public record UpdateExpenseRequest(
@@ -21,8 +22,9 @@ public record UpdateExpenseRequest(
 );
 
 public record CreateExpenseSplitRequest(
-    int UserId,
-    decimal Amount
+    int? UserId,
+    decimal Amount,
+    string? GuestName = null
 );
 
 public record ExpenseDto(
@@ -41,7 +43,7 @@ public record ExpenseDto(
 
 public record ExpenseSplitDto(
     int Id,
-    int UserId,
+    int? UserId,
     string UserName,
     decimal Amount
 );

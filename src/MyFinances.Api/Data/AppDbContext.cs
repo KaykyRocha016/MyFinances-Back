@@ -101,7 +101,8 @@ public class AppDbContext : DbContext
             entity.ToTable("expense_splits");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.ExpenseId).HasColumnName("expense_id");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id").IsRequired(false);
+            entity.Property(e => e.GuestName).HasColumnName("guest_name").HasMaxLength(100);
             entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(18, 2);
 
             entity.HasOne(d => d.Expense)
@@ -112,6 +113,7 @@ public class AppDbContext : DbContext
             entity.HasOne(d => d.User)
                 .WithMany()
                 .HasForeignKey(d => d.UserId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

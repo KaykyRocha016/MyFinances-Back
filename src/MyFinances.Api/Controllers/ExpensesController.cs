@@ -78,19 +78,35 @@ public class ExpensesController : ControllerBase
 
         int totalInstallments = request.TotalInstallments > 0 ? request.TotalInstallments : 1;
 
-        var activeCycle = await _context.Cycles
-            .FirstOrDefaultAsync(c => c.HouseholdId == payer.HouseholdId && c.IsActive);
-
-        if (activeCycle == null)
+        Cycle resolvedCycle;
+        if (request.CycleId.HasValue)
         {
-            return BadRequest("Não há nenhum ciclo de gastos ativo para o núcleo deste usuário. Abra um ciclo de gastos primeiro.");
+            var cycle = await _context.Cycles
+                .FirstOrDefaultAsync(c => c.Id == request.CycleId.Value && c.HouseholdId == payer.HouseholdId);
+
+            if (cycle == null)
+            {
+                return BadRequest("O ciclo de gastos selecionado não foi encontrado ou não pertence ao núcleo deste usuário.");
+            }
+            resolvedCycle = cycle;
+        }
+        else
+        {
+            var activeCycle = await _context.Cycles
+                .FirstOrDefaultAsync(c => c.HouseholdId == payer.HouseholdId && c.IsActive);
+
+            if (activeCycle == null)
+            {
+                return BadRequest("Não há nenhum ciclo de gastos ativo para o núcleo deste usuário. Abra um ciclo de gastos primeiro.");
+            }
+            resolvedCycle = activeCycle;
         }
 
         Guid? installmentGroupId = totalInstallments > 1 ? Guid.NewGuid() : null;
         decimal baseInstallmentAmount = Math.Round(request.Amount / totalInstallments, 2);
 
         var createdExpenses = new List<Expense>();
-        Cycle currentCycle = activeCycle;
+        Cycle currentCycle = resolvedCycle;
 
         var allUsers = await _context.Users
             .Where(u => u.HouseholdId == payer.HouseholdId)
@@ -108,7 +124,7 @@ public class ExpensesController : ControllerBase
             Cycle cycleForInstallment;
             if (i == 1)
             {
-                cycleForInstallment = activeCycle;
+                cycleForInstallment = resolvedCycle;
             }
             else
             {
@@ -157,6 +173,7 @@ public class ExpensesController : ControllerBase
                             splits.Add(new ExpenseSplit
                             {
                                 UserId = splitDto.UserId,
+                                GuestName = splitDto.UserId.HasValue ? null : (splitDto.GuestName ?? "Terceiro"),
                                 Amount = userPortion
                             });
                         }
@@ -210,6 +227,7 @@ public class ExpensesController : ControllerBase
                         splits.Add(new ExpenseSplit
                         {
                             UserId = splitDto.UserId,
+                            GuestName = splitDto.UserId.HasValue ? null : (splitDto.GuestName ?? "Terceiro"),
                             Amount = userPortion
                         });
                     }
@@ -356,7 +374,7 @@ public class ExpensesController : ControllerBase
             d.Splits.Select(r => new ExpenseSplitDto(
                 r.Id,
                 r.UserId,
-                r.User!.Name,
+                r.UserId.HasValue ? r.User!.Name : (r.GuestName ?? "Terceiro"),
                 r.Amount
             )).ToList(),
             d.CycleId,

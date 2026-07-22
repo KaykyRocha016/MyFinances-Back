@@ -52,16 +52,6 @@ public class CyclesController : ControllerBase
             return BadRequest("A data de início deve ser anterior à data de fim.");
         }
 
-        // Deactivate other active cycles of this household
-        var activeCycles = await _context.Cycles
-            .Where(c => c.HouseholdId == request.HouseholdId && c.IsActive)
-            .ToListAsync();
-
-        foreach (var activeCycle in activeCycles)
-        {
-            activeCycle.IsActive = false;
-        }
-
         var cycle = new Cycle
         {
             Name = request.Name,
@@ -118,19 +108,6 @@ public class CyclesController : ControllerBase
         if (cycle == null)
         {
             return NotFound("Ciclo não encontrado.");
-        }
-
-        // If we are setting this cycle to active, deactivate all other cycles in this household
-        if (request.IsActive && !cycle.IsActive)
-        {
-            var activeCycles = await _context.Cycles
-                .Where(c => c.HouseholdId == cycle.HouseholdId && c.IsActive && c.Id != id)
-                .ToListAsync();
-
-            foreach (var activeCycle in activeCycles)
-            {
-                activeCycle.IsActive = false;
-            }
         }
 
         cycle.Name = request.Name;

@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
             entity.ToTable("households");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
 
         modelBuilder.Entity<Cycle>(entity =>
@@ -37,6 +38,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.EndDate).HasColumnName("end_date");
             entity.Property(e => e.IsActive).HasColumnName("is_active");
             entity.Property(e => e.HouseholdId).HasColumnName("household_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(c => c.Household)
                 .WithMany()
@@ -51,6 +53,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
             entity.Property(e => e.Income).HasColumnName("income").HasPrecision(18, 2);
             entity.Property(e => e.HouseholdId).HasColumnName("household_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(u => u.Household)
                 .WithMany()
@@ -64,6 +67,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
             entity.Property(e => e.DivisionType).HasColumnName("division_type").HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
 
         modelBuilder.Entity<Expense>(entity =>
@@ -79,6 +83,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.InstallmentNumber).HasColumnName("installment_number");
             entity.Property(e => e.TotalInstallments).HasColumnName("total_installments");
             entity.Property(e => e.InstallmentGroupId).HasColumnName("installment_group_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(d => d.User)
                 .WithMany()
@@ -104,6 +109,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.UserId).HasColumnName("user_id").IsRequired(false);
             entity.Property(e => e.GuestName).HasColumnName("guest_name").HasMaxLength(100);
             entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(18, 2);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(d => d.Expense)
                 .WithMany(p => p.Splits)

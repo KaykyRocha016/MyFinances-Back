@@ -1,3 +1,5 @@
+using System;
+
 namespace MyFinances.Api.Models;
 
 public class User
@@ -8,4 +10,5 @@ public class User
 
     public int HouseholdId { get; set; }
     public Household? Household { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

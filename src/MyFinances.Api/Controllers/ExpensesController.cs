@@ -295,6 +295,10 @@ public class ExpensesController : ControllerBase
             expense.Description = request.Description;
             expense.Amount = request.Amount;
             expense.CategoryId = request.CategoryId;
+            if (request.Date.HasValue)
+            {
+                expense.Date = request.Date.Value.ToUniversalTime();
+            }
         }
 
         await _context.SaveChangesAsync();

@@ -18,6 +18,7 @@ public record UpdateExpenseRequest(
     string Description,
     decimal Amount,
     int CategoryId,
+    DateTime? Date = null,
     bool UpdateAllInstallments = false
 );
 

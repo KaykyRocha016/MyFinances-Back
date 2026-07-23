@@ -23,5 +23,7 @@ public class Expense
     public int TotalInstallments { get; set; } = 1;
     public Guid? InstallmentGroupId { get; set; }
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     public ICollection<ExpenseSplit> Splits { get; set; } = new List<ExpenseSplit>();
 }

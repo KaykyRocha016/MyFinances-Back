@@ -1,3 +1,5 @@
+using System;
+
 namespace MyFinances.Api.Models;
 
 public class ExpenseSplit
@@ -11,4 +13,5 @@ public class ExpenseSplit
 
     public string? GuestName { get; set; }
     public decimal Amount { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

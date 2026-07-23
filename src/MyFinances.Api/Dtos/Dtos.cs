@@ -19,7 +19,9 @@ public record UpdateExpenseRequest(
     decimal Amount,
     int CategoryId,
     DateTime? Date = null,
-    bool UpdateAllInstallments = false
+    bool UpdateAllInstallments = false,
+    int? UserId = null,
+    List<CreateExpenseSplitRequest>? Splits = null
 );
 
 public record CreateExpenseSplitRequest(

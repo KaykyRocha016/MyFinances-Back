@@ -258,7 +258,9 @@ public class ExpensesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateExpense(int id, UpdateExpenseRequest request)
     {
-        var expense = await _context.Expenses.FindAsync(id);
+        var expense = await _context.Expenses
+            .Include(e => e.Splits)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (expense == null)
         {
             return NotFound("Despesa não encontrada.");
@@ -270,15 +272,17 @@ public class ExpensesController : ControllerBase
             return BadRequest("Categoria não encontrada.");
         }
 
+        int payerId = request.UserId ?? expense.UserId;
+
         if (request.UpdateAllInstallments && expense.InstallmentGroupId.HasValue)
         {
             var allInstallments = await _context.Expenses
+                .Include(e => e.Splits)
                 .Where(e => e.InstallmentGroupId == expense.InstallmentGroupId.Value)
                 .ToListAsync();
 
             foreach (var inst in allInstallments)
             {
-                // Preserve (i/N) suffix if present
                 if (inst.TotalInstallments > 1)
                 {
                     inst.Description = $"{request.Description} ({inst.InstallmentNumber}/{inst.TotalInstallments})";
@@ -288,6 +292,14 @@ public class ExpensesController : ControllerBase
                     inst.Description = request.Description;
                 }
                 inst.CategoryId = request.CategoryId;
+                inst.Amount = request.Amount;
+                inst.UserId = payerId;
+                if (request.Date.HasValue)
+                {
+                    inst.Date = request.Date.Value.AddMonths(inst.InstallmentNumber - expense.InstallmentNumber).ToUniversalTime();
+                }
+
+                await RecalculateSplits(inst, request.CategoryId, request.Amount, payerId, request.Splits);
             }
         }
         else
@@ -295,15 +307,119 @@ public class ExpensesController : ControllerBase
             expense.Description = request.Description;
             expense.Amount = request.Amount;
             expense.CategoryId = request.CategoryId;
+            expense.UserId = payerId;
             if (request.Date.HasValue)
             {
                 expense.Date = request.Date.Value.ToUniversalTime();
             }
+
+            await RecalculateSplits(expense, request.CategoryId, request.Amount, payerId, request.Splits);
         }
 
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private async Task RecalculateSplits(Expense expense, int categoryId, decimal amount, int payerId, List<CreateExpenseSplitRequest>? requestSplits)
+    {
+        var category = await _context.Categories.FindAsync(categoryId);
+        if (category == null) return;
+
+        // Clear existing splits
+        _context.ExpenseSplits.RemoveRange(expense.Splits);
+        expense.Splits.Clear();
+
+        var splits = new List<ExpenseSplit>();
+
+        switch (category.DivisionType.ToUpper())
+        {
+            case "PROPORCIONAL":
+                if (requestSplits != null && requestSplits.Any())
+                {
+                    decimal accumulatedProp = 0m;
+                    for (int j = 0; j < requestSplits.Count; j++)
+                    {
+                        var splitDto = requestSplits[j];
+                        decimal userPortion;
+                        if (j == requestSplits.Count - 1)
+                        {
+                            userPortion = amount - accumulatedProp;
+                        }
+                        else
+                        {
+                            userPortion = splitDto.Amount;
+                            accumulatedProp += userPortion;
+                        }
+
+                        splits.Add(new ExpenseSplit
+                        {
+                            UserId = splitDto.UserId,
+                            GuestName = splitDto.UserId.HasValue ? null : (splitDto.GuestName ?? "Terceiro"),
+                            Amount = userPortion
+                        });
+                    }
+                }
+                else
+                {
+                    var payer = await _context.Users.FindAsync(payerId);
+                    if (payer != null)
+                    {
+                        var allUsers = await _context.Users
+                            .Where(u => u.HouseholdId == payer.HouseholdId)
+                            .ToListAsync();
+                        var userIncomes = allUsers.Select(u => (u.Id, u.Income)).ToList();
+                        var proportionalSplits = DistributeProportionally(amount, userIncomes);
+                        foreach (var split in proportionalSplits)
+                        {
+                            splits.Add(new ExpenseSplit
+                            {
+                                UserId = split.UserId,
+                                Amount = split.Value
+                            });
+                        }
+                    }
+                }
+                break;
+
+            case "INDIVIDUAL":
+                splits.Add(new ExpenseSplit
+                {
+                    UserId = payerId,
+                    Amount = amount
+                });
+                break;
+
+            case "CUSTOMIZADO":
+                if (requestSplits != null && requestSplits.Any())
+                {
+                    decimal accumulatedCustom = 0m;
+                    for (int j = 0; j < requestSplits.Count; j++)
+                    {
+                        var splitDto = requestSplits[j];
+                        decimal userPortion;
+                        if (j == requestSplits.Count - 1)
+                        {
+                            userPortion = amount - accumulatedCustom;
+                        }
+                        else
+                        {
+                            userPortion = splitDto.Amount;
+                            accumulatedCustom += userPortion;
+                        }
+
+                        splits.Add(new ExpenseSplit
+                        {
+                            UserId = splitDto.UserId,
+                            GuestName = splitDto.UserId.HasValue ? null : (splitDto.GuestName ?? "Terceiro"),
+                            Amount = userPortion
+                        });
+                    }
+                }
+                break;
+        }
+
+        expense.Splits = splits;
     }
 
     [HttpDelete("{id}")]
